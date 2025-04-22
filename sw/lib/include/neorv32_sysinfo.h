@@ -50,8 +50,8 @@ enum NEORV32_SYSINFO_SOC_enum {
   SYSINFO_SOC_DCACHE        =  6, /**< SYSINFO_SOC  (6) (r/-): Processor-internal instruction cache implemented when 1 (via DCACHE_EN generic) */
 //SYSINFO_SOC_reserved      =  7, /**< SYSINFO_SOC  (7) (r/-): reserved */
   SYSINFO_SOC_XBUS_CACHE    =  8, /**< SYSINFO_SOC  (8) (r/-): External bus cache implemented when 1 (via XBUS_CACHE_EN generic) */
-//SYSINFO_SOC_reserved      =  9, /**< SYSINFO_SOC  (9) (r/-): reserved */
-//SYSINFO_SOC_reserved      = 10, /**< SYSINFO_SOC (10) (r/-): reserved */
+  SYSINFO_SOC_IO_ADDER      =  9, /**< SYSINFO_SOC (9) (r/-): reserved */
+  //SYSINFO_SOC_reserved      =  10, /**< SYSINFO_SOC  (10) (r/-): reserved */
   SYSINFO_SOC_OCD_AUTH      = 11, /**< SYSINFO_SOC (11) (r/-): On-chip debugger authentication implemented when 1 (via OCD_AUTHENTICATION generic) */
   SYSINFO_SOC_IMEM_ROM      = 12, /**< SYSINFO_SOC (12) (r/-): Processor-internal instruction memory implemented as pre-initialized ROM when 1 (via BOOT_MODE_SELECT generic) */
   SYSINFO_SOC_IO_TWD        = 13, /**< SYSINFO_SOC (13) (r/-): Two-wire device implemented when 1 (via IO_TWD_EN generic) */

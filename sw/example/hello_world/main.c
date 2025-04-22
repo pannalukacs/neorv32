@@ -21,6 +21,7 @@
  **************************************************************************/
 /**@{*/
 /** UART BAUD rate */
+// #define BAUD_RATE 1152000
 #define BAUD_RATE 19200
 /**@}*/
 
@@ -43,7 +44,7 @@ int main() {
   neorv32_uart0_setup(BAUD_RATE, 0);
 
   // print project logo via UART
-  neorv32_aux_print_logo();
+  // neorv32_aux_print_logo();
 
   // say hello
   neorv32_uart0_puts("Hello world! :)\n");

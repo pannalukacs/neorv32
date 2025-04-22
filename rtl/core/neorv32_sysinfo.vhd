@@ -50,6 +50,7 @@ entity neorv32_sysinfo is
     IO_WDT_EN             : boolean; -- implement watch dog timer (WDT)
     IO_TRNG_EN            : boolean; -- implement true random number generator (TRNG)
     IO_CFS_EN             : boolean; -- implement custom functions subsystem (CFS)
+    IO_ADDER_EN           : boolean; 
     IO_NEOLED_EN          : boolean; -- implement NeoPixel-compatible smart LED interface (NEOLED)
     IO_GPTMR_EN           : boolean; -- implement general purpose timer (GPTMR)
     IO_ONEWIRE_EN         : boolean; -- implement 1-wire interface (ONEWIRE)
@@ -124,7 +125,7 @@ begin
   sysinfo(2)(6)  <= '1' when DCACHE_EN         else '0'; -- processor-internal data cache implemented
   sysinfo(2)(7)  <= '0';                                 -- reserved
   sysinfo(2)(8)  <= '1' when xcache_en_c       else '0'; -- external bus interface cache implemented
-  sysinfo(2)(9)  <= '0';                                 -- reserved
+  sysinfo(2)(9)  <= '1' when IO_ADDER_EN       else '0'; -- reserved
   sysinfo(2)(10) <= '0';                                 -- reserved
   sysinfo(2)(11) <= '1' when ocd_auth_en_c     else '0'; -- on-chip debugger authentication implemented
   sysinfo(2)(12) <= '1' when int_imem_rom_c    else '0'; -- processor-internal instruction memory implemented as pre-initialized ROM

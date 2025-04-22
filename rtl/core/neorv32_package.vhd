@@ -29,7 +29,7 @@ package neorv32_package is
 
   -- Architecture Constants -----------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  constant hw_version_c : std_ulogic_vector(31 downto 0) := x"01110207"; -- hardware version
+  constant hw_version_c : std_ulogic_vector(31 downto 0) := x"01110204"; -- hardware version
   constant archid_c     : natural := 19; -- official RISC-V architecture ID
   constant XLEN         : natural := 32; -- native data path width
 
@@ -67,7 +67,7 @@ package neorv32_package is
 --constant base_io_???_c        : std_ulogic_vector(31 downto 0) := x"ffe60000"; -- reserved
 --constant base_io_???_c        : std_ulogic_vector(31 downto 0) := x"ffe70000"; -- reserved
 --constant base_io_???_c        : std_ulogic_vector(31 downto 0) := x"ffe80000"; -- reserved
---constant base_io_???_c        : std_ulogic_vector(31 downto 0) := x"ffe90000"; -- reserved
+  constant base_io_adder_c      : std_ulogic_vector(31 downto 0) := x"ffe90000"; -- reserved
   constant base_io_twd_c        : std_ulogic_vector(31 downto 0) := x"ffea0000";
   constant base_io_cfs_c        : std_ulogic_vector(31 downto 0) := x"ffeb0000";
   constant base_io_slink_c      : std_ulogic_vector(31 downto 0) := x"ffec0000";
@@ -882,6 +882,10 @@ package neorv32_package is
       IO_CFS_CONFIG         : std_ulogic_vector(31 downto 0) := x"00000000";
       IO_CFS_IN_SIZE        : natural                        := 32;
       IO_CFS_OUT_SIZE       : natural                        := 32;
+      IO_ADDER_EN           : boolean                        := false;
+      IO_ADDER_CONFIG       : std_ulogic_vector(31 downto 0) := x"00000000";
+      IO_ADDER_IN_SIZE      : natural                        := 32;
+      IO_ADDER_OUT_SIZE     : natural                        := 32;
       IO_NEOLED_EN          : boolean                        := false;
       IO_NEOLED_TX_FIFO     : natural range 1 to 2**15       := 1;
       IO_GPTMR_EN           : boolean                        := false;
@@ -968,6 +972,9 @@ package neorv32_package is
       -- Custom Functions Subsystem IO --
       cfs_in_i       : in  std_ulogic_vector(IO_CFS_IN_SIZE-1 downto 0) := (others => 'L');
       cfs_out_o      : out std_ulogic_vector(IO_CFS_OUT_SIZE-1 downto 0);
+      -- Custom Adder IO --
+      adder_in_i       : in  std_ulogic_vector(IO_ADDER_IN_SIZE-1 downto 0) := (others => 'L');
+      adder_out_o      : out std_ulogic_vector(IO_ADDER_OUT_SIZE-1 downto 0);
       -- NeoPixel-compatible smart LED interface (available if IO_NEOLED_EN = true) --
       neoled_o       : out std_ulogic;
       -- Machine timer system time (available if IO_CLINT_EN = true) --

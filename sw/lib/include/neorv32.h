@@ -23,6 +23,7 @@ extern "C" {
 #include <inttypes.h>
 #include <stdlib.h>
 
+
 /**********************************************************************//**
  * @name IO Address Space Map - Peripheral/IO Devices
  **************************************************************************/
@@ -37,7 +38,7 @@ extern "C" {
 //#define NEORV32_???_BASE      (0xFFE60000U) /**< reserved */
 //#define NEORV32_???_BASE      (0xFFE70000U) /**< reserved */
 //#define NEORV32_???_BASE      (0xFFE80000U) /**< reserved */
-//#define NEORV32_???_BASE      (0xFFE90000U) /**< reserved */
+#define NEORV32_ADDER_BASE      (0xFFE90000U) /**< reserved */
 #define NEORV32_TWD_BASE        (0xFFEA0000U) /**< Two-Wire Device (TWD) */
 #define NEORV32_CFS_BASE        (0xFFEB0000U) /**< Custom Functions Subsystem (CFS) */
 #define NEORV32_SLINK_BASE      (0xFFEC0000U) /**< Stream Link Interface (SLINK) */
@@ -80,6 +81,11 @@ extern "C" {
 #define CFS_FIRQ_PENDING       CSR_MIP_FIRQ1P    /**< MIP CSR bit (#NEORV32_CSR_MIP_enum) */
 #define CFS_RTE_ID             RTE_TRAP_FIRQ_1   /**< RTE entry code (#NEORV32_RTE_TRAP_enum) */
 #define CFS_TRAP_CODE          TRAP_CODE_FIRQ_1  /**< MCAUSE CSR trap code (#NEORV32_EXCEPTION_CODES_enum) */
+
+#define ADDER_FIRQ_ENABLE        CSR_MIE_FIRQ1E    /**< MIE CSR bit (#NEORV32_CSR_MIE_enum) */
+#define ADDER_FIRQ_PENDING       CSR_MIP_FIRQ1P    /**< MIP CSR bit (#NEORV32_CSR_MIP_enum) */
+#define ADDER_RTE_ID             RTE_TRAP_FIRQ_1   /**< RTE entry code (#NEORV32_RTE_TRAP_enum) */
+#define ADDER_TRAP_CODE          TRAP_CODE_FIRQ_1  /**< MCAUSE CSR trap code (#NEORV32_EXCEPTION_CODES_enum) */
 /**@}*/
 /** @name Primary Universal Asynchronous Receiver/Transmitter (UART0) */
 /**@{*/
@@ -174,28 +180,16 @@ extern "C" {
 
 
 /**********************************************************************//**
- * @name NEORV32 Makefile symbols
- **************************************************************************/
-/**@{*/
-#ifndef NEORV32_GIT_TAG
-#define NEORV32_GIT_TAG "unknown"
-#endif
-/**@}*/
-
-
-/**********************************************************************//**
- * @name NEORV32 linker symbols
+ * @name Export linker script symbols
  **************************************************************************/
 /**@{*/
 extern char __heap_start[];    /**< heap start address */
 extern char __heap_end[];      /**< heap last address */
 extern char __crt0_max_heap[]; /**< heap size in bytes */
-extern char __crt0_entry[];    /**< crt0 entry point */
 // aliases
 #define NEORV32_HEAP_BEGIN ((uint32_t)&__heap_start[0])
 #define NEORV32_HEAP_END   ((uint32_t)&__heap_end[0])
 #define NEORV32_HEAP_SIZE  ((uint32_t)&__crt0_max_heap[0])
-#define NEORV32_CRT0_ENTRY ((uint32_t)&__crt0_entry[0])
 /**@}*/
 
 
@@ -260,6 +254,7 @@ typedef union {
 #include "neorv32_smp.h"
 
 // IO/peripheral devices
+#include "neorv32_adder.h"
 #include "neorv32_cfs.h"
 #include "neorv32_clint.h"
 #include "neorv32_crc.h"

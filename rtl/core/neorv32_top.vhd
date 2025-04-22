@@ -129,6 +129,10 @@ entity neorv32_top is
     IO_CFS_CONFIG         : std_ulogic_vector(31 downto 0) := x"00000000"; -- custom CFS configuration generic
     IO_CFS_IN_SIZE        : natural                        := 32;          -- size of CFS input conduit in bits
     IO_CFS_OUT_SIZE       : natural                        := 32;          -- size of CFS output conduit in bits
+    IO_ADDER_EN           : boolean                        := false;
+    IO_ADDER_CONFIG       : std_ulogic_vector(31 downto 0) := x"00000000"; -- custom ADDER configuration generic
+    IO_ADDER_IN_SIZE      : natural                        := 32;          -- size of ADDER input conduit in bits
+    IO_ADDER_OUT_SIZE     : natural                        := 32;          -- size of ADDER output conduit in bits
     IO_NEOLED_EN          : boolean                        := false;       -- implement NeoPixel-compatible smart LED interface (NEOLED)
     IO_NEOLED_TX_FIFO     : natural range 1 to 2**15       := 1;           -- NEOLED FIFO depth, has to be a power of two, min 1
     IO_GPTMR_EN           : boolean                        := false;       -- implement general purpose timer (GPTMR)
@@ -229,6 +233,10 @@ entity neorv32_top is
     cfs_in_i       : in  std_ulogic_vector(IO_CFS_IN_SIZE-1 downto 0) := (others => 'L'); -- custom CFS inputs conduit
     cfs_out_o      : out std_ulogic_vector(IO_CFS_OUT_SIZE-1 downto 0);     -- custom CFS outputs conduit
 
+    -- Custom Functions Subsystem IO (available if IO_ADDER_EN = true) --
+    adder_in_i       : in  std_ulogic_vector(IO_ADDER_IN_SIZE-1 downto 0) := (others => 'L'); -- custom ADDER inputs conduit
+    adder_out_o      : out std_ulogic_vector(IO_ADDER_OUT_SIZE-1 downto 0);     -- custom ADDER outputs conduit
+
     -- NeoPixel-compatible smart LED interface (available if IO_NEOLED_EN = true) --
     neoled_o       : out std_ulogic;                                        -- async serial data line
 
@@ -276,7 +284,7 @@ architecture neorv32_top_rtl of neorv32_top is
   signal clk_gen : std_ulogic_vector(7 downto 0); -- scaled clock-enables
   --
   type clk_gen_en_enum_t is (
-    CG_CFS, CG_UART0, CG_UART1, CG_SPI, CG_TWI, CG_TWD, CG_PWM, CG_WDT, CG_NEOLED, CG_GPTMR, CG_ONEWIRE
+    CG_CFS, CG_ADDER, CG_UART0, CG_UART1, CG_SPI, CG_TWI, CG_TWD, CG_PWM, CG_WDT, CG_NEOLED, CG_GPTMR, CG_ONEWIRE
   );
   type clk_gen_en_t is array (clk_gen_en_enum_t) of std_ulogic;
   signal clk_gen_en  : clk_gen_en_t;
@@ -312,7 +320,7 @@ architecture neorv32_top_rtl of neorv32_top is
   type io_devices_enum_t is (
     IODEV_BOOTROM, IODEV_OCD, IODEV_SYSINFO, IODEV_NEOLED, IODEV_GPIO, IODEV_WDT, IODEV_TRNG,
     IODEV_TWI, IODEV_SPI, IODEV_SDI, IODEV_UART1, IODEV_UART0, IODEV_CLINT, IODEV_ONEWIRE,
-    IODEV_GPTMR, IODEV_PWM, IODEV_CRC, IODEV_DMA, IODEV_SLINK, IODEV_CFS, IODEV_HWSPINLOCK, IODEV_TWD
+    IODEV_GPTMR, IODEV_PWM, IODEV_CRC, IODEV_DMA, IODEV_SLINK, IODEV_CFS, IODEV_ADDER, IODEV_HWSPINLOCK, IODEV_TWD
   );
   type iodev_req_t is array (io_devices_enum_t) of bus_req_t;
   type iodev_rsp_t is array (io_devices_enum_t) of bus_rsp_t;
@@ -326,7 +334,7 @@ architecture neorv32_top_rtl of neorv32_top is
   -- IRQs --
   type firq_enum_t is (
     FIRQ_TWD, FIRQ_UART0_RX, FIRQ_UART0_TX, FIRQ_UART1_RX, FIRQ_UART1_TX, FIRQ_SPI, FIRQ_SDI, FIRQ_TWI,
-    FIRQ_CFS, FIRQ_NEOLED, FIRQ_GPIO, FIRQ_GPTMR, FIRQ_ONEWIRE, FIRQ_DMA, FIRQ_SLINK_RX, FIRQ_SLINK_TX
+    FIRQ_CFS, FIRQ_ADDER, FIRQ_NEOLED, FIRQ_GPIO, FIRQ_GPTMR, FIRQ_ONEWIRE, FIRQ_DMA, FIRQ_SLINK_RX, FIRQ_SLINK_TX
   );
   type firq_t is array (firq_enum_t) of std_ulogic;
   signal firq      : firq_t;
@@ -373,6 +381,7 @@ begin
       cond_sel_string_f(IO_WDT_EN,                 "WDT ",        "") &
       cond_sel_string_f(IO_TRNG_EN,                "TRNG ",       "") &
       cond_sel_string_f(IO_CFS_EN,                 "CFS ",        "") &
+      cond_sel_string_f(IO_ADDER_EN,               "ADDER ",      "") &
       cond_sel_string_f(IO_NEOLED_EN,              "NEOLED ",     "") &
       cond_sel_string_f(IO_GPTMR_EN,               "GPTMR ",      "") &
       cond_sel_string_f(IO_ONEWIRE_EN,             "ONEWIRE ",    "") &
@@ -481,6 +490,8 @@ begin
   cpu_firq(13) <= firq(FIRQ_ONEWIRE);
   cpu_firq(14) <= firq(FIRQ_SLINK_RX);
   cpu_firq(15) <= firq(FIRQ_SLINK_TX); -- lowest priority
+  -- cpu_firq(16) <= firq(FIRQ_ADDER);
+
 
   -- CPU core(s) + optional L1 caches + bus switch --
   core_complex_gen:
@@ -977,7 +988,7 @@ begin
       DEV_06_EN => false,            DEV_06_BASE => (others => '0'), -- reserved
       DEV_07_EN => false,            DEV_07_BASE => (others => '0'), -- reserved
       DEV_08_EN => false,            DEV_08_BASE => (others => '0'), -- reserved
-      DEV_09_EN => false,            DEV_09_BASE => (others => '0'), -- reserved
+      DEV_09_EN => IO_ADDER_EN,      DEV_09_BASE => base_io_adder_c, -- reserved
       DEV_10_EN => IO_TWD_EN,        DEV_10_BASE => base_io_twd_c,
       DEV_11_EN => IO_CFS_EN,        DEV_11_BASE => base_io_cfs_c,
       DEV_12_EN => IO_SLINK_EN,      DEV_12_BASE => base_io_slink_c,
@@ -1015,7 +1026,7 @@ begin
       dev_06_req_o => open,                        dev_06_rsp_i => rsp_terminate_c, -- reserved
       dev_07_req_o => open,                        dev_07_rsp_i => rsp_terminate_c, -- reserved
       dev_08_req_o => open,                        dev_08_rsp_i => rsp_terminate_c, -- reserved
-      dev_09_req_o => open,                        dev_09_rsp_i => rsp_terminate_c, -- reserved
+      dev_09_req_o => iodev_req(IODEV_ADDER),      dev_09_rsp_i => iodev_rsp(IODEV_ADDER), -- reserved
       dev_10_req_o => iodev_req(IODEV_TWD),        dev_10_rsp_i => iodev_rsp(IODEV_TWD),
       dev_11_req_o => iodev_req(IODEV_CFS),        dev_11_rsp_i => iodev_rsp(IODEV_CFS),
       dev_12_req_o => iodev_req(IODEV_SLINK),      dev_12_rsp_i => iodev_rsp(IODEV_SLINK),
@@ -1081,14 +1092,43 @@ begin
         cfs_in_i    => cfs_in_i,
         cfs_out_o   => cfs_out_o
       );
-    end generate;
-
+      end generate;
+    
     neorv32_cfs_disabled:
     if not IO_CFS_EN generate
       iodev_rsp(IODEV_CFS) <= rsp_terminate_c;
       clk_gen_en(CG_CFS)   <= '0';
       firq(FIRQ_CFS)       <= '0';
       cfs_out_o            <= (others => '0');
+    end generate;
+
+    neorv32_adder_enabled:
+    if IO_ADDER_EN generate
+      neorv32_adder_inst: entity neorv32.neorv32_adder
+      generic map (
+        ADDER_CONFIG   => IO_ADDER_CONFIG,
+        ADDER_IN_SIZE  => IO_ADDER_IN_SIZE,
+        ADDER_OUT_SIZE => IO_ADDER_OUT_SIZE
+      )
+      port map (
+        clk_i       => clk_i,
+        rstn_i      => rstn_sys,
+        bus_req_i   => iodev_req(IODEV_ADDER),
+        bus_rsp_o   => iodev_rsp(IODEV_ADDER),
+        clkgen_en_o => clk_gen_en(CG_ADDER),
+        clkgen_i    => clk_gen,
+        irq_o       => firq(FIRQ_ADDER),
+        adder_in_i  => adder_in_i,
+        adder_out_o => adder_out_o
+      );
+    end generate;
+
+    neorv32_adder_disabled:
+    if not IO_ADDER_EN generate
+      iodev_rsp(IODEV_ADDER) <= rsp_terminate_c;
+      clk_gen_en(CG_ADDER)   <= '0';
+      firq(FIRQ_ADDER)       <= '0';
+      adder_out_o            <= (others => '0');
     end generate;
 
 
@@ -1630,6 +1670,7 @@ begin
         IO_WDT_EN             => IO_WDT_EN,
         IO_TRNG_EN            => IO_TRNG_EN,
         IO_CFS_EN             => IO_CFS_EN,
+        IO_ADDER_EN           => IO_ADDER_EN,
         IO_NEOLED_EN          => IO_NEOLED_EN,
         IO_GPTMR_EN           => IO_GPTMR_EN,
         IO_ONEWIRE_EN         => IO_ONEWIRE_EN,

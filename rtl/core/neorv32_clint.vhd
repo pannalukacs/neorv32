@@ -96,6 +96,7 @@ architecture neorv32_clint_rtl of neorv32_clint is
   -- misc --
   signal mtime : std_ulogic_vector(63 downto 0);
   signal ack_q : std_ulogic;
+  signal rdata : std_ulogic_vector(31 downto 0);
 
 begin
 
@@ -186,7 +187,7 @@ begin
       mti_v := mti_v or mtimecmp_rd(i);
       msi_v := msi_v or mswi_rd(i);
     end loop;
-    bus_rsp_o.data <= mtime_rd or mti_v or msi_v;
+    rdata <= mtime_rd or mti_v or msi_v;
   end process read_back;
 
 
@@ -197,12 +198,13 @@ begin
     if (rstn_i = '0') then
       ack_q <= '0';
     elsif rising_edge(clk_i) then
-      ack_q <= mtime_en or or_reduce_f(mtimecmp_en) or or_reduce_f(mswi_en);
+      ack_q <= bus_req_i.stb;
     end if;
   end process bus_access;
 
   bus_rsp_o.ack  <= ack_q;
   bus_rsp_o.err  <= '0';
+  bus_rsp_o.data <= rdata;
 
 
 end neorv32_clint_rtl;
