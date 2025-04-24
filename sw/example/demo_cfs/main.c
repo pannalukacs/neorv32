@@ -47,17 +47,17 @@ int main() {
 
 
   // check if CFS is implemented at all
-  if (neorv32_cfs_available() == 0) {
+  if (neorv32_adder_available() == 0) {
     neorv32_uart0_printf("Error! No CFS synthesized!\n");
     return 1;
   }
 
   neorv32_uart0_printf("Panna 2!\n");
 
-  NEORV32_ADDER->REG[0] = 2;
-  NEORV32_ADDER->REG[1] = 5;  
+  // NEORV32_ADDER->REG[0] = 2;
+  // NEORV32_ADDER->REG[1] = 5;  
   // neorv32_adder_add(2, 5);
-  neorv32_uart0_printf("Adding 2 + 5 = %x\n", NEORV32_ADDER->REG[2]);
+  neorv32_uart0_printf("Adding 2 + 5 = %x\n", neorv32_adder_add(2, 5));
 
 
   // intro

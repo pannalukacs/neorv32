@@ -973,8 +973,8 @@ package neorv32_package is
       cfs_in_i       : in  std_ulogic_vector(IO_CFS_IN_SIZE-1 downto 0) := (others => 'L');
       cfs_out_o      : out std_ulogic_vector(IO_CFS_OUT_SIZE-1 downto 0);
       -- Custom Adder IO --
-      adder_in_i       : in  std_ulogic_vector(IO_ADDER_IN_SIZE-1 downto 0) := (others => 'L');
-      adder_out_o      : out std_ulogic_vector(IO_ADDER_OUT_SIZE-1 downto 0);
+      adder_in_i     : in  std_ulogic_vector(IO_ADDER_IN_SIZE-1 downto 0) := (others => 'L');
+      adder_out_o    : out std_ulogic_vector(IO_ADDER_OUT_SIZE-1 downto 0);
       -- NeoPixel-compatible smart LED interface (available if IO_NEOLED_EN = true) --
       neoled_o       : out std_ulogic;
       -- Machine timer system time (available if IO_CLINT_EN = true) --

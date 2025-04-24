@@ -29,10 +29,6 @@ typedef volatile struct __attribute__((packed,aligned(4))) {
   uint32_t REG[(64*1024)/4]; /**< ADDER registers, user-defined */
 } neorv32_adder_t;
 
-// #define ADDER_REG0 (*((volatile uint32_t*) (NEORV32_ADDER_BASE + 0x00)))
-// #define ADDER_REG1 (*((volatile uint32_t*) (NEORV32_ADDER_BASE + 0x04)))
-// #define ADDER_RESULT ADDER_REG0
-
 /** ADDER module hardware handle (#neorv32_adder_t) */
 #define NEORV32_ADDER ((neorv32_adder_t*) (NEORV32_ADDER_BASE))
 /**@}*/
