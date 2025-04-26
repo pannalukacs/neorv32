@@ -36,3 +36,10 @@ int neorv32_cfs_available(void) {
   }
 }
 
+uint32_t neorv32_cfs_op(uint32_t a, uint32_t b) {
+  NEORV32_CFS->REG[0] = a;
+  NEORV32_CFS->REG[1] = b;
+
+  return NEORV32_CFS->REG[2];
+}
+

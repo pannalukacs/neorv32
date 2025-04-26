@@ -45,6 +45,7 @@ architecture neorv32_cfs_rtl of neorv32_cfs is
   type cfs_regs_t is array (0 to 3) of std_ulogic_vector(31 downto 0); -- just implement 4 registers for this example
   signal cfs_reg_wr : cfs_regs_t; -- interface registers for WRITE accesses
   signal cfs_reg_rd : cfs_regs_t; -- interface registers for READ accesses
+  signal func_sel  : unsigned(3 downto 0);
 
 begin
 
@@ -205,11 +206,37 @@ begin
   -- This is where the actual functionality can be implemented.
   -- The logic below is just a very simple example that transforms data
   -- from an input register into data in an output register.
+  
+  func_sel <= unsigned(CFS_CONFIG(3 downto 0));
 
-  cfs_reg_rd(0) <= x"0000000" & "000" & or_reduce_f(cfs_reg_wr(0)); -- OR all bits
-  cfs_reg_rd(1) <= x"0000000" & "000" & xor_reduce_f(cfs_reg_wr(1)); -- XOR all bits
-  cfs_reg_rd(2) <= bit_rev_f(cfs_reg_wr(2)); -- bit reversal
-  cfs_reg_rd(3) <= bswap_f(cfs_reg_wr(3)); -- byte swap (endianness conversion)
+  func_core: process(cfs_reg_wr, func_sel)
+    variable tmp_rd    : cfs_regs_t;
+  begin
+    -- Default operations (mode 0)
+    tmp_rd(0) := x"0000000" & "000" & or_reduce_f(cfs_reg_wr(0));
+    tmp_rd(1) := x"0000000" & "000" & xor_reduce_f(cfs_reg_wr(1));
+    tmp_rd(2) := bit_rev_f(cfs_reg_wr(2));
+    tmp_rd(3) := bswap_f(cfs_reg_wr(3));
 
+    -- Override default functionality based on selector
+    case func_sel is
+      when "0001" =>  -- Mode 1: adder (reg0 + reg1)
+        tmp_rd(2) := std_logic_vector(
+                      unsigned(cfs_reg_wr(0)) + unsigned(cfs_reg_wr(1))
+                    );
+
+      when "0010" =>  -- Mode 2: subtractor (reg0 - reg1)
+        tmp_rd(2) := std_logic_vector(
+                      unsigned(cfs_reg_wr(0)) - unsigned(cfs_reg_wr(1))
+                    );
+
+      when others =>  -- Keep defaults
+        null;
+
+    end case;
+
+    -- Drive read registers
+    cfs_reg_rd <= tmp_rd;
+  end process func_core;
 
 end neorv32_cfs_rtl;

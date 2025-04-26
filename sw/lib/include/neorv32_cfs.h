@@ -39,6 +39,8 @@ typedef volatile struct __attribute__((packed,aligned(4))) {
  **************************************************************************/
 /**@{*/
 int neorv32_cfs_available(void);
+
+uint32_t neorv32_cfs_op(uint32_t a, uint32_t b);
 /**@}*/
 
 

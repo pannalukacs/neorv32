@@ -211,7 +211,7 @@ begin
     IO_TRNG_EN            => true,
     IO_TRNG_FIFO          => 4,
     IO_CFS_EN             => true,
-    IO_CFS_CONFIG         => (others => '0'),
+    IO_CFS_CONFIG         => x"00000002",
     IO_CFS_IN_SIZE        => 32,
     IO_CFS_OUT_SIZE       => 32,
     IO_NEOLED_EN          => true,
