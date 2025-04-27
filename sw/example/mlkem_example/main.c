@@ -1,4 +1,5 @@
 #include <neorv32.h>
+#include <string.h>
 #include "mlkem/api.h"
 
 #define CRYPTO_PUBLICKEYBYTES PQCLEAN_MLKEM512_CLEAN_CRYPTO_PUBLICKEYBYTES
@@ -29,7 +30,7 @@ int main(void)
     crypto_kem_enc(ct, ss, pk);
     crypto_kem_dec(ss_recovered, ct, sk);
 
-    if (neorv32_memcmp(ss, ss_recovered, CRYPTO_BYTES) == 0)
+    if (memcmp(ss, ss_recovered, CRYPTO_BYTES) == 0)
     {
         neorv32_uart0_printf("ML-KEM Kyber512: SUCCESS!\n");
     }
