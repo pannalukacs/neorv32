@@ -18,7 +18,7 @@ int main(void)
     neorv32_rte_setup();              
     neorv32_uart0_setup(BAUD_RATE, 0); 
 
-    neorv32_uart0_printf("Starting ML-KEM Kyber512 test...\n");
+    neorv32_uart0_puts("Starting ML-KEM Kyber512 test...\n");
 
     uint8_t pk[CRYPTO_PUBLICKEYBYTES];
     uint8_t sk[CRYPTO_SECRETKEYBYTES];
@@ -26,17 +26,24 @@ int main(void)
     uint8_t ss[CRYPTO_BYTES];
     uint8_t ss_recovered[CRYPTO_BYTES];
 
+    neorv32_uart0_puts("Mem allocated\n");
+
     crypto_kem_keypair(pk, sk);
+    neorv32_uart0_puts("Keypair done\n");
+
     crypto_kem_enc(ct, ss, pk);
+    neorv32_uart0_puts("Enc done\n");
+
     crypto_kem_dec(ss_recovered, ct, sk);
+    neorv32_uart0_puts("Dec done\n");
 
     if (memcmp(ss, ss_recovered, CRYPTO_BYTES) == 0)
     {
-        neorv32_uart0_printf("ML-KEM Kyber512: SUCCESS!\n");
+        neorv32_uart0_puts("ML-KEM Kyber512: SUCCESS!\n");
     }
     else
     {
-        neorv32_uart0_printf("ML-KEM Kyber512: FAILURE!\n");
+        neorv32_uart0_puts("ML-KEM Kyber512: FAILURE!\n");
     }
 
     return 0;

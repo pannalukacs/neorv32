@@ -9,9 +9,9 @@ USER_FLAGS += -ggdb -gdwarf-3
 USER_FLAGS += --specs=nano.specs
 
 # Memory size (IMEM/DMEM/HEAP)
-USER_FLAGS += -Wl,--defsym,__neorv32_rom_size=128k
-USER_FLAGS += -Wl,--defsym,__neorv32_ram_size=16k
-USER_FLAGS += -Wl,--defsym,__neorv32_heap_size=8k
+USER_FLAGS += -Wl,--defsym,__neorv32_rom_size=24k
+USER_FLAGS += -Wl,--defsym,__neorv32_ram_size=8k
+USER_FLAGS += -Wl,--defsym,__neorv32_heap_size=1k
 
 # UART simulation mode (default enabled for faster simulation)
 # Comment the following line to disable fast UART0 sim mode:
@@ -27,6 +27,8 @@ APP_INC += -I mlkem -I common
 
 # Path to NEORV32 repo root
 NEORV32_HOME ?= ../../..
+
+GHDL_RUN_FLAGS += --stop-time=10000ms
 
 # Include NEORV32 Makefile
 include $(NEORV32_HOME)/sw/common/common.mk
