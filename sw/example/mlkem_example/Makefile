@@ -7,9 +7,10 @@ EFFORT = -Os
 # Debugging symbols
 USER_FLAGS += -ggdb -gdwarf-3
 
-# Adjust memory size (IMEM/DMEM)
-USER_FLAGS += -Wl,--defsym,__neorv32_rom_size=64k
+# Adjust memory size (IMEM/DMEM/HEAP)
+USER_FLAGS += -Wl,--defsym,__neorv32_rom_size=128k
 USER_FLAGS += -Wl,--defsym,__neorv32_ram_size=16k
+USER_FLAGS += -Wl,--defsym,__neorv32_heap_size=8k
 
 # Application source files
 APP_SRC += main.c
@@ -19,7 +20,7 @@ APP_SRC += common/fips202.c common/randombytes.c
 # Application include folders
 APP_INC += -I mlkem -I common
 
-# Path to NEORV32 repo root (adjust if needed)
+# Path to NEORV32 repo root
 NEORV32_HOME ?= ../../..
 
 # Include NEORV32 Makefile
