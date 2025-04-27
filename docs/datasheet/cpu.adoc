@@ -370,9 +370,9 @@ is used to return the bus response upstream from a device back to the host and i
 (i.e. a processor-internal memory or IO device).
 
 The signals of the request bus are split in to two categories: _in-band_ signals and _out-of-band_ signals. In-band
-signals always belong to a certain bus transaction and are only valid between `stb` being set and the according response
-(`err` or `ack`). being set. In contrast, the out-of-band signals are not associated with any bus transaction and are
-always valid when set.
+signals always belong to a certain bus transaction and are valid between `stb` (request) being set and the according
+`err` or `ack` (response) being set. In contrast, the out-of-band signals are not associated with any bus transaction
+and are always valid when set.
 
 .Bus Interface - Request Bus (`bus_req_t`)
 [cols="^1,^1,<6"]
@@ -380,16 +380,17 @@ always valid when set.
 |=======================
 | Signal  | Width | Description
 3+^| **In-Band Signals**
-| `addr`  |    32 | Access address (byte addressing)
-| `data`  |    32 | Write data
-| `ben`   |     4 | Byte-enable for each byte in `data`
-| `stb`   |     1 | Request trigger ("strobe", single-shot)
-| `rw`    |     1 | Access direction (`0` = read, `1` = write)
-| `src`   |     1 | Access source (`0` = instruction fetch, `1` = load/store)
-| `priv`  |     1 | Set if privileged (M-mode) access
-| `debug` |     1 | Set if debug mode access
-| `amo`   |     1 | Set if current access is an atomic memory operation (<<_atomic_memory_access>>)
-| `amoop` |     4 | Type of atomic memory operation (<<_atomic_memory_access>>)
+| `addr`  |    32 | Access address using byte-wise addressing. Half-word (16-bit) and word (32-bit) addresses are aligned accordingly (e.g. LSB = 0 for half-word accesses).
+| `data`  |    32 | Write data. Writing individual bytes is controlled via `ben`.
+| `ben`   |     4 | Byte-enable for each byte in `data`.
+| `stb`   |     1 | Request trigger ("strobe"). This signal is high for exactly one cycle starting a bus request. All other _in-band_ signals are valid only if `stb` is set.
+| `rw`    |     1 | Access direction (`0` = read, `1` = write).
+| `src`   |     1 | Access source (`0` = instruction fetch, `1` = load/store).
+| `lock`  |     1 | Set if contiguous transfer; the current transfer is part of a group of transfers that should not be interleaved. This signal is relevant for the bus network only and may be ignored.
+| `priv`  |     1 | Set if privileged (Machine-mode) access.
+| `debug` |     1 | Set if debug-mode access (access from the on-chip debugger).
+| `amo`   |     1 | Set if current access is an atomic memory operation (<<_atomic_memory_access>>).
+| `amoop` |     4 | Actual type of atomic memory operation (<<_atomic_memory_access>>). Irrelevant if `amo` is not set.
 3+^| **Out-Of-Band Signals**
 | `fence` |     1 | Data (load/store; `fence`) or instruction (instruction-fetch; `fence.i`) fence request; single-shot; see <<_memory_coherence>>
 |=======================
@@ -425,7 +426,7 @@ The figure below shows three exemplary bus accesses:
 . A write access to address `B_addr` writing `wdata` (fastest response; `ACK` arrives right in the next cycle).
 . A failing read access to address `C_addr` (slow response; `ERR` arrives after several cycles).
 
-.Three Exemplary Bus Transactions (showing only in-band signals; privileged non-debug non-atomic accesses)
+.Three Exemplary Bus Transactions (privileged non-locked non-debug non-atomic accesses)
 [wavedrom, format="svg", align="center"]
 ----
 {signal: [
@@ -438,10 +439,12 @@ The figure below shows three exemplary bus accesses:
     {name: 'stb',   wave: '010|..10.10|..', node: '.a....d..f....'},
     {name: 'rw',    wave: 'x0.|.x1.x0.|..', node: '..............'},
     {name: 'src',   wave: 'x0.|.x0.x0.|.x'},
+    {name: 'lock',  wave: '0..|.......|..'},
     {name: 'priv',  wave: 'x1.|.x1.x1.|.x'},
     {name: 'debug', wave: 'x0.|.x0.x0.|.x'},
     {name: 'amo',   wave: 'x0.|.x0.x0.|.x'},
-    {name: 'amoop', wave: 'x0.|.x0.x0.|.x'},
+    {name: 'amoop', wave: 'x..|.......|..'},
+    {name: 'fence', wave: '0..|.......|..'},
   ],
   {},
   [
@@ -470,21 +473,21 @@ For the CPU, the atomic memory accesses are handled as plain load/store operatio
 The `amoop` signal specifies the actual atomic processing operation:
 
 .AMO Operation Type Encoding (Bus Interface Signals)
-[cols="<1,<4,<4"]
+[cols="<2,<4,<4"]
 [options="header",grid="rows"]
 |=======================
-| `bus_req_t.amoop` | Description | ISA Extension
-| `-000` | swap              | <<_zaamo_isa_extension,`Zaamo`>>
-| `-001` | unsigned add      | <<_zaamo_isa_extension,`Zaamo`>>
-| `-010` | logical xor       | <<_zaamo_isa_extension,`Zaamo`>>
-| `-011` | logical and       | <<_zaamo_isa_extension,`Zaamo`>>
-| `-100` | logical or        | <<_zaamo_isa_extension,`Zaamo`>>
-| `0110` | unsigned minimum  | <<_zaamo_isa_extension,`Zaamo`>>
-| `0111` | unsigned maximum  | <<_zaamo_isa_extension,`Zaamo`>>
-| `1110` | signed minimum    | <<_zaamo_isa_extension,`Zaamo`>>
-| `1111` | signed maximum    | <<_zaamo_isa_extension,`Zaamo`>>
-| `1000` | load-reservate    | <<_zalrsc_isa_extension,`Zalrsc`>>
-| `1001` | store-conditional | <<_zalrsc_isa_extension,`Zalrsc`>>
+| `amoop` | Description       | Required ISA Extension
+| `-000`  | swap              | <<_zaamo_isa_extension,`Zaamo`>>
+| `-001`  | unsigned ADD      | <<_zaamo_isa_extension,`Zaamo`>>
+| `-010`  | logical XOR       | <<_zaamo_isa_extension,`Zaamo`>>
+| `-011`  | logical AND       | <<_zaamo_isa_extension,`Zaamo`>>
+| `-100`  | logical OR        | <<_zaamo_isa_extension,`Zaamo`>>
+| `0110`  | unsigned minimum  | <<_zaamo_isa_extension,`Zaamo`>>
+| `0111`  | unsigned maximum  | <<_zaamo_isa_extension,`Zaamo`>>
+| `1110`  | signed minimum    | <<_zaamo_isa_extension,`Zaamo`>>
+| `1111`  | signed maximum    | <<_zaamo_isa_extension,`Zaamo`>>
+| `1000`  | load-reservate    | <<_zalrsc_isa_extension,`Zalrsc`>>
+| `1001`  | store-conditional | <<_zalrsc_isa_extension,`Zalrsc`>>
 |=======================
 
 .Cache Coherency
@@ -540,8 +543,8 @@ This chapter gives a brief overview of all available ISA extensions.
 | <<_zmmul_isa_extension,`Zmmul`>>       | Integer multiplication-only instructions                      | <<_processor_top_entity_generics, `RISCV_ISA_Zmmul`>>
 | <<_zxcfu_isa_extension,`Zcfu`>>        | Custom / user-defined instructions                            | <<_processor_top_entity_generics, `RISCV_ISA_Zxcfu`>>
 | <<_smpmp_isa_extension,`Smpmp`>>       | Physical memory protection (PMP) extension                    | <<_processor_top_entity_generics, `RISCV_ISA_Smpmp`>>
-| <<_sdext_isa_extension,`Sdext`>>       | External debug support extension                              | <<_processor_top_entity_generics, `OCD_EN`>>
-| <<_sdtrig_isa_extension,`Sdtrig`>>     | Trigger module extension                                      | <<_processor_top_entity_generics, `OCD_HW_BREAKPOINT`>>
+| <<_sdext_isa_extension,`Sdext`>>       | External debug support extension (on-chip debugger)           | <<_processor_top_entity_generics, `OCD_EN`>>
+| <<_sdtrig_isa_extension,`Sdtrig`>>     | Debug trigger module extension (hardware breakpoint)          | <<_processor_top_entity_generics, `OCD_HW_BREAKPOINT`>>
 |=======================
 
 .RISC-V ISA Specification
@@ -1201,7 +1204,8 @@ See section <<_on_chip_debugger_ocd>> / <<_cpu_debug_mode>> for more information
 
 ==== `Sdtrig` ISA Extension
 
-This ISA extension implements the RISC-V-compatible "trigger module".
+This ISA extension implements the RISC-V-compatible "trigger module" which provides support for
+hardware breakpoints for the on-chip-debugger. 
 See section <<_on_chip_debugger_ocd>> / <<_trigger_module>> for more information.
 
 
