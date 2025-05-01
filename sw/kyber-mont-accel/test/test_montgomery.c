@@ -3,8 +3,8 @@
  * @brief Minimal test for Montgomery reduction
  */
 
-#include <stdio.h>
 #include "kyber_reduce.h"
+#include "utility.h"
 
 int main(void)
 {
@@ -28,9 +28,7 @@ int main(void)
     for (int i = 0; i < n; i++)
     {
         sint16 out = montgomery_reduce(tests[i].in);
-        printf("%10d -> %6d (exp %6d) [%s]\n",
-               tests[i].in, out, tests[i].exp,
-               (out == tests[i].exp) ? "OK" : "FAIL");
+        print_result(tests[i].in, out, tests[i].exp);
     }
 
     return 0;
