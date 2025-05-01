@@ -4,7 +4,6 @@
 #include "kyber_common.h"
 
 #ifdef NEORV32
-
 #include <neorv32.h>
 #include <stdio.h> // for snprintf
 

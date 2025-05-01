@@ -5,9 +5,16 @@
 
 #include "kyber_reduce.h"
 #include "utility.h"
+#ifdef NEORV32
+#define BAUD_RATE 19200
+#endif
 
 int main(void)
 {
+#ifdef NEORV32
+    neorv32_rte_setup();
+    neorv32_uart0_setup(BAUD_RATE, 0);
+#endif
     PRINT("Running Montgomery reduction tests\n");
 
     struct
