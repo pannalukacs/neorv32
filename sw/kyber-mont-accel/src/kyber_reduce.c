@@ -7,11 +7,11 @@
 
 #ifdef NEORV32
 
-uint32 montgomery(uint32 x)
+uint16 montgomery(uint32 x)
 {
     NEORV32_CFS->REG[0] = x;
 
-    return NEORV32_CFS->REG[0];
+    return (uint16)NEORV32_CFS->REG[0];
 }
 
 #else

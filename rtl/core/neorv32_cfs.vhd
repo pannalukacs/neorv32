@@ -207,16 +207,29 @@ begin
   -- The logic below is just a very simple example that transforms data
   -- from an input register into data in an output register.
   
-  func_sel <= unsigned(CFS_CONFIG(3 downto 0));
+  --  Constants ---------------------------------------------------------------
+  constant KYBER_Q : signed(15 downto 0) := to_signed(3329, 16);
+  constant QINV    : signed(15 downto 0) := to_signed(-3327, 16); -- 0xF0BF = 62209
 
-  func_core: process(cfs_reg_wr, func_sel)
-    variable tmp_rd    : cfs_regs_t;
+  --  Pure‑combinational Montgomery reduction ---------------------------------
+  function montgomery_reduce(a : signed(31 downto 0)) return signed is
+    --  Work variables
+    variable lo_u  : unsigned(15 downto 0);      -- unsigned view of a(15 downto 0)
+    variable t0    : signed(31 downto 0);
+    variable prod  : signed(31 downto 0);
+    variable diff  : signed(31 downto 0);
   begin
+    --  Step‑1:  t0 = (a mod 2¹⁶) * q⁻¹  (low 16 bits only)
+    lo_u := unsigned(a(15 downto 0));
+    t0   := resize(signed(lo_u) * QINV, 32);
 
-    tmp_rd(0) := cfs_reg_wr(0);
+    --  Step‑2:  prod = (t0 mod 2¹⁶) * q          (low 16 bits only)
+    prod := resize(signed(t0(15 downto 0)) * KYBER_Q, 32);
 
-    -- Drive read registers
-    cfs_reg_rd <= tmp_rd;
-  end process func_core;
+    --  Step‑3:  (a – t0*q) >> 16   (logical shift)
+    diff := a - prod;
+    return srl(diff, 16); -- 32‑bit result with zero‑extended upper half‑word
+  end function;
+
 
 end neorv32_cfs_rtl;
