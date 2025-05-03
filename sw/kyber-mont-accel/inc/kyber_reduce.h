@@ -8,6 +8,14 @@
 
 #include "kyber_common.h"
 
+#ifdef NEORV32
+
+#include <neorv32.h>
+
+static inline uint32 montgomery(uint32 x);
+
+#else
+
 /**
  * @brief Montgomery reduction
  *

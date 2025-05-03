@@ -32,7 +32,7 @@ int main(void)
     {
         sint16 out = montgomery_reduce(tests[i].in);
         if (out == tests[i].exp)
-        {
+        {   
             PRINT(".");
         }
         else

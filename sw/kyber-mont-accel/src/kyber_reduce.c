@@ -5,6 +5,17 @@
 
 #include "kyber_reduce.h"
 
+#ifdef NEORV32
+
+static inline uint32 montgomery(uint32 x)
+{
+    NEORV32_CFS->REG[0] = x;
+
+    return NEORV32_CFS->REG[0];
+}
+
+#else
+
 sint16 montgomery_reduce(sint32 a)
 {
     sint16 t = 0;
