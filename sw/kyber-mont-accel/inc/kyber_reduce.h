@@ -12,7 +12,7 @@
 
 #include <neorv32.h>
 
-static inline uint32 montgomery(uint32 x);
+uint32 montgomery(uint32 x);
 
 #else
 
@@ -30,3 +30,4 @@ sint16 montgomery_reduce(sint32 a);
 #define FsmSw_Kyber_montgomery_reduce montgomery_reduce
 
 #endif /* KYBER_REDUCE_H */
+#endif

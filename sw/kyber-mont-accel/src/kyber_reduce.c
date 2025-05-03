@@ -7,7 +7,7 @@
 
 #ifdef NEORV32
 
-static inline uint32 montgomery(uint32 x)
+uint32 montgomery(uint32 x)
 {
     NEORV32_CFS->REG[0] = x;
 
@@ -28,3 +28,5 @@ sint16 montgomery_reduce(sint32 a)
 
     return t;
 }
+
+#endif
