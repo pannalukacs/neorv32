@@ -1,10 +1,9 @@
 -- ================================================================================ --
 -- NEORV32 SoC - Custom Functions Subsystem (CFS)                                   --
 -- -------------------------------------------------------------------------------- --
--- Intended for tightly-coupled, application-specific custom co-processors. This    --
--- module provides up to 64x 32-bit memory-mapped interface registers, one CPU      --
--- interrupt request signal and custom IO conduits for processor-external or chip-  --
--- external interface.                                                              --
+-- Kyber Montgomery‑Reduce example                                                  --
+-- Write operand 'a' (32 bit) to REG[0]; read REG[0] back to obtain                 --
+-- montgomery_reduce(a) in the lower 16 bits (upper 16 bits are zero).             --
 -- -------------------------------------------------------------------------------- --
 -- The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              --
 -- Copyright (c) NEORV32 contributors.                                              --
@@ -23,170 +22,96 @@ use neorv32.neorv32_package.all;
 entity neorv32_cfs is
   generic (
     CFS_CONFIG   : std_ulogic_vector(31 downto 0); -- custom CFS configuration generic
-    CFS_IN_SIZE  : natural; -- size of CFS input conduit in bits
-    CFS_OUT_SIZE : natural  -- size of CFS output conduit in bits
+    CFS_IN_SIZE  : natural;                        -- size of CFS input conduit in bits
+    CFS_OUT_SIZE : natural                         -- size of CFS output conduit in bits
   );
   port (
     clk_i       : in  std_ulogic; -- global clock line
-    rstn_i      : in  std_ulogic; -- global reset line, low-active, use as async
-    bus_req_i   : in  bus_req_t; -- bus request
-    bus_rsp_o   : out bus_rsp_t; -- bus response
+    rstn_i      : in  std_ulogic; -- global reset line, low‑active, use as async
+    bus_req_i   : in  bus_req_t;  -- bus request
+    bus_rsp_o   : out bus_rsp_t;  -- bus response
     clkgen_en_o : out std_ulogic; -- enable clock generator
-    clkgen_i    : in  std_ulogic_vector(7 downto 0); -- "clock" inputs
+    clkgen_i    : in  std_ulogic_vector(7 downto 0); -- derived clock enables
     irq_o       : out std_ulogic; -- interrupt request
     cfs_in_i    : in  std_ulogic_vector(CFS_IN_SIZE-1 downto 0); -- custom inputs
     cfs_out_o   : out std_ulogic_vector(CFS_OUT_SIZE-1 downto 0) -- custom outputs
   );
 end neorv32_cfs;
 
+-- ################################################################################################
 architecture neorv32_cfs_rtl of neorv32_cfs is
+-- ################################################################################################
 
-  -- default CFS interface registers --
-  type cfs_regs_t is array (0 to 3) of std_ulogic_vector(31 downto 0); -- just implement 4 registers for this example
-  signal cfs_reg_wr : cfs_regs_t; -- interface registers for WRITE accesses
-  signal cfs_reg_rd : cfs_regs_t; -- interface registers for READ accesses
-  signal func_sel  : unsigned(3 downto 0);
+  -- --------------------------------------------------------------------------
+  -- Interface register file (WRITE side & READ side)
+  -- --------------------------------------------------------------------------
+  type cfs_regs_t is array (0 to 3) of std_ulogic_vector(31 downto 0);
+  signal cfs_reg_wr : cfs_regs_t := (others => (others => '0'));
+  signal cfs_reg_rd : cfs_regs_t;
 
-begin
+  -- --------------------------------------------------------------------------
+  -- Constants for Kyber q = 3329
+  -- --------------------------------------------------------------------------
+  constant KYBER_Q : signed(15 downto 0) := to_signed(3329, 16);
+  constant QINV    : signed(15 downto 0) := to_signed(-3327, 16); -- 3329⁻¹ mod 2¹⁶
 
-  -- CFS Generics ---------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  -- In it's default version the CFS provides three configuration generics:
-  -- > CFS_IN_SIZE  - configures the size (in bits) of the CFS input conduit cfs_in_i
-  -- > CFS_OUT_SIZE - configures the size (in bits) of the CFS output conduit cfs_out_o
-  -- > CFS_CONFIG   - is a blank 32-bit generic. It is intended as a "generic conduit" to propagate
-  --                  custom configuration flags from the top entity down to this module.
-
-
-  -- CFS IOs --------------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  -- By default, the CFS provides two IO signals (cfs_in_i and cfs_out_o) that are available at the processor's top entity.
-  -- These are intended as "conduits" to propagate custom signals from this module and the processor top entity.
-  --
-  -- If the CFU output signals are to be used outside the chip, it is recommended to register these signals.
-
-  cfs_out_o <= (others => '0'); -- not used for this minimal example
-
-
-  -- Reset System ---------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  -- The CFS can be reset using the global rstn_i signal. This signal should be used as asynchronous reset and is active-low.
-  -- Note that rstn_i can be asserted by a processor-external reset, the on-chip debugger and also by the watchdog.
-  --
-  -- Most default peripheral devices of the NEORV32 do NOT use a dedicated hardware reset at all. Instead, these units are
-  -- reset by writing ZERO to a specific "control register" located right at the beginning of the device's address space
-  -- (so this register is cleared at first). The crt0 start-up code writes ZERO to every single address in the processor's
-  -- IO space - including the CFS. Make sure that this initial clearing does not cause any unintended CFS actions.
-
-
-  -- Clock System ---------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  -- The processor top unit implements a clock generator providing 8 "derived clocks".
-  -- Actually, these signals should not be used as direct clock signals, but as *clock enable* signals.
-  -- clkgen_i is always synchronous to the main system clock (clk_i).
-  --
-  -- The following clock dividers are available:
-  -- > clkgen_i(clk_div2_c)    -> MAIN_CLK/2
-  -- > clkgen_i(clk_div4_c)    -> MAIN_CLK/4
-  -- > clkgen_i(clk_div8_c)    -> MAIN_CLK/8
-  -- > clkgen_i(clk_div64_c)   -> MAIN_CLK/64
-  -- > clkgen_i(clk_div128_c)  -> MAIN_CLK/128
-  -- > clkgen_i(clk_div1024_c) -> MAIN_CLK/1024
-  -- > clkgen_i(clk_div2048_c) -> MAIN_CLK/2048
-  -- > clkgen_i(clk_div4096_c) -> MAIN_CLK/4096
-  --
-  -- For instance, if you want to drive a clock process at MAIN_CLK/8 clock speed you can use the following construct:
-  --
-  --   if (rstn_i = '0') then -- async and low-active reset (if required at all)
-  --   ...
-  --   elsif rising_edge(clk_i) then -- always use the main clock for all clock processes
-  --     if (clkgen_i(clk_div8_c) = '1') then -- the div8 "clock" is actually a clock enable
-  --       ...
-  --     end if;
-  --   end if;
-  --
-  -- The clkgen_i input clocks are available when at least one IO/peripheral device (for example UART0) requires the clocks
-  -- generated by the clock generator. The CFS can enable the clock generator by itself by setting the clkgen_en_o signal high.
-  -- The CFS cannot ensure to deactivate the clock generator by setting the clkgen_en_o signal low as other peripherals might
-  -- still keep the generator activated. Make sure to deactivate the CFS's clkgen_en_o if no clocks are required in here to
-  -- reduce dynamic power consumption.
-
-  clkgen_en_o <= '0'; -- not used for this minimal example
-
-
-  -- Interrupt ------------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  -- The CFS features a single interrupt signal, which is connected to the CPU's "fast interrupt" channel 1 (FIRQ1).
-  -- The according CPU interrupt becomes pending as long as <irq_o> is high.
-
-  irq_o <= '0'; -- not used for this minimal example
-
-
-  -- Read/Write Access ----------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  -- Here we are reading/writing from/to the interface registers of the module and generate the CPU access handshake (bus response).
-  --
-  -- The CFS provides up to 64kB of memory-mapped address space (16 address bits, byte-addressing) that can be used for custom
-  -- memories and interface registers. If the complete 16-bit address space is not required, only the minimum LSBs required for
-  -- address decoding can be used. In this case, however, the implemented registers are replicated (several times) across the CFS
-  -- address space.
-  --
-  -- Following the interface protocol, each read or write access has to be acknowledged in the following cycle using the ack_o
-  -- signal (or even later if the module needs additional time). If no ACK is generated at all, the bus access will time out
-  -- and cause a bus access fault exception. The current CPU privilege level is available via the 'priv_i' signal (0 = user mode,
-  -- 1 = machine mode), which can be used to constrain access to certain registers or features to privileged software only.
-  --
-  -- This module also provides an optional ERROR signal to indicate a faulty access operation (for example when accessing an
-  -- unused, read-only or "locked" CFS register address). This signal may only be set when the module is actually accessed
-  -- and is set INSTEAD of the ACK signal. Setting the ERR signal will raise a bus access exception with a "Device Error" qualifier
-  -- that can be handled by the application software. Note that the current privilege level should not be exposed to software to
-  -- maintain full virtualization. Hence, CFS-based "privilege escalation" should trigger a bus access exception (e.g. by setting 'err_o').
-  --
-  -- Host access example: Read and write access to the interface registers + bus transfer acknowledge. This example only
-  -- implements four physical r/w register (the four lowest CFS registers). The remaining addresses of the CFS are not associated
-  -- with any physical registers - any access to those is simply ignored but still acknowledged. Only full-word write accesses are
-  -- supported (and acknowledged) by this example. Sub-word write access will not alter any CFS register state and will cause
-  -- a "bus store access" exception (with a "Device Timeout" qualifier as not ACK is generated in that case).
-
-  bus_access: process(rstn_i, clk_i)
+  -- --------------------------------------------------------------------------
+  -- Pure combinational Montgomery‑reduce
+  -- --------------------------------------------------------------------------
+  function montgomery_reduce(a : signed(31 downto 0)) return signed is
+    variable lo_u : unsigned(15 downto 0);
+    variable t0   : signed(31 downto 0);
+    variable prod : signed(31 downto 0);
+    variable diff : signed(31 downto 0);
   begin
-    if (rstn_i = '0') then
-      cfs_reg_wr(0) <= (others => '0');
-      cfs_reg_wr(1) <= (others => '0');
-      cfs_reg_wr(2) <= (others => '0');
-      cfs_reg_wr(3) <= (others => '0');
-      bus_rsp_o     <= rsp_terminate_c;
-    elsif rising_edge(clk_i) then -- synchronous interface for read and write accesses
-      -- transfer/access acknowledge --
-      bus_rsp_o.ack <= bus_req_i.stb;
+    -- Step 1: t0 = (a mod 2¹⁶) * q⁻¹
+    lo_u := unsigned(a(15 downto 0));
+    t0   := resize(signed(lo_u) * QINV, 32);
 
-      -- tie to zero if not explicitly used --
-      bus_rsp_o.err <= '0';
+    -- Step 2: prod = (t0 mod 2¹⁶) * q
+    prod := resize(signed(t0(15 downto 0)) * KYBER_Q, 32);
 
-      -- defaults --
-      bus_rsp_o.data <= (others => '0'); -- the output HAS TO BE ZERO if there is no actual (read) access
+    -- Step 3: (a – t0*q) >> 16   (logical shift)
+    diff := a - prod;
+    return signed(shift_right(unsigned(diff), 16)); -- zero‑extended shift
+  end function;
 
-      -- bus access --
-      if (bus_req_i.stb = '1') then -- valid access cycle, STB is high for one cycle
+-- ################################################################################################
+begin
+-- ################################################################################################
 
-        -- write access (word-wise) --
-        if (bus_req_i.rw = '1') then
-          if (bus_req_i.addr(15 downto 2) = "00000000000000") then -- 16-bit byte address = 14-bit word address
-            cfs_reg_wr(0) <= bus_req_i.data;
-          end if;
-          if (bus_req_i.addr(15 downto 2) = "00000000000001") then
-            cfs_reg_wr(1) <= bus_req_i.data;
-          end if;
-          if (bus_req_i.addr(15 downto 2) = "00000000000010") then
-            cfs_reg_wr(2) <= bus_req_i.data;
-          end if;
-          if (bus_req_i.addr(15 downto 2) = "00000000000011") then
-            cfs_reg_wr(3) <= bus_req_i.data;
-          end if;
+  -- ----------------------------------------------------------------------------
+  -- Static outputs (unused features)
+  -- ----------------------------------------------------------------------------
+  clkgen_en_o <= '0';                 -- no derived clocks required
+  irq_o       <= '0';                 -- no interrupt generated
+  cfs_out_o   <= (others => '0');     -- conduit unused in this example
 
-        -- read access (word-wise) --
-        else
-          case bus_req_i.addr(15 downto 2) is -- 16-bit byte address = 14-bit word address
+  -- ----------------------------------------------------------------------------
+  -- Bus interface : read / write handshake
+  -- ----------------------------------------------------------------------------
+  bus_access : process(clk_i, rstn_i)
+  begin
+    if rstn_i = '0' then                          -- asynchronous reset (low‑active)
+      cfs_reg_wr <= (others => (others => '0'));
+      bus_rsp_o  <= rsp_terminate_c;              -- default “not ready”
+    elsif rising_edge(clk_i) then
+      -- default response every cycle
+      bus_rsp_o.ack  <= bus_req_i.stb;
+      bus_rsp_o.err  <= '0';
+      bus_rsp_o.data <= (others => '0');
+
+      if bus_req_i.stb = '1' then                 -- valid transaction
+        if bus_req_i.rw = '1' then                -- WRITE
+          case bus_req_i.addr(15 downto 2) is
+            when "00000000000000" => cfs_reg_wr(0) <= bus_req_i.data;
+            when "00000000000001" => cfs_reg_wr(1) <= bus_req_i.data;
+            when "00000000000010" => cfs_reg_wr(2) <= bus_req_i.data;
+            when "00000000000011" => cfs_reg_wr(3) <= bus_req_i.data;
+            when others           => null;
+          end case;
+        else                                       -- READ
+          case bus_req_i.addr(15 downto 2) is
             when "00000000000000" => bus_rsp_o.data <= cfs_reg_rd(0);
             when "00000000000001" => bus_rsp_o.data <= cfs_reg_rd(1);
             when "00000000000010" => bus_rsp_o.data <= cfs_reg_rd(2);
@@ -194,42 +119,23 @@ begin
             when others           => bus_rsp_o.data <= (others => '0');
           end case;
         end if;
-
       end if;
     end if;
   end process bus_access;
 
+  -- ----------------------------------------------------------------------------
+  -- CFS function core : Kyber Montgomery‑reduce in REG[0]
+  -- ----------------------------------------------------------------------------
+  cfs_reg_rd(0) <= (31 downto 16 => '0') &           -- zero‑extend to 32 bit
+                   std_logic_vector(
+                     montgomery_reduce(
+                       signed(cfs_reg_wr(0))
+                     )(15 downto 0)
+                   );
 
-  -- CFS Function Core ----------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-
-  -- This is where the actual functionality can be implemented.
-  -- The logic below is just a very simple example that transforms data
-  -- from an input register into data in an output register.
-  
-  --  Constants ---------------------------------------------------------------
-  constant KYBER_Q : signed(15 downto 0) := to_signed(3329, 16);
-  constant QINV    : signed(15 downto 0) := to_signed(-3327, 16); -- 0xF0BF = 62209
-
-  --  Pure‑combinational Montgomery reduction ---------------------------------
-  function montgomery_reduce(a : signed(31 downto 0)) return signed is
-    --  Work variables
-    variable lo_u  : unsigned(15 downto 0);      -- unsigned view of a(15 downto 0)
-    variable t0    : signed(31 downto 0);
-    variable prod  : signed(31 downto 0);
-    variable diff  : signed(31 downto 0);
-  begin
-    --  Step‑1:  t0 = (a mod 2¹⁶) * q⁻¹  (low 16 bits only)
-    lo_u := unsigned(a(15 downto 0));
-    t0   := resize(signed(lo_u) * QINV, 32);
-
-    --  Step‑2:  prod = (t0 mod 2¹⁶) * q          (low 16 bits only)
-    prod := resize(signed(t0(15 downto 0)) * KYBER_Q, 32);
-
-    --  Step‑3:  (a – t0*q) >> 16   (logical shift)
-    diff := a - prod;
-    return srl(diff, 16); -- 32‑bit result with zero‑extended upper half‑word
-  end function;
-
+  -- Remaining registers read as zero
+  cfs_reg_rd(1) <= (others => '0');
+  cfs_reg_rd(2) <= (others => '0');
+  cfs_reg_rd(3) <= (others => '0');
 
 end neorv32_cfs_rtl;
