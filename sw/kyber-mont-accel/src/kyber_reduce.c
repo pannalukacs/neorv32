@@ -14,7 +14,7 @@ uint16 montgomery(uint32 x)
     return (uint16)NEORV32_CFS->REG[0];
 }
 
-#else
+// #else
 
 sint16 montgomery_reduce(sint32 a)
 {

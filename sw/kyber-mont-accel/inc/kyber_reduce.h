@@ -12,9 +12,9 @@
 
 #include <neorv32.h>
 
-uint32 montgomery(uint32 x);
+uint16 montgomery(uint32 x);
 
-#else
+// #else
 
 /**
  * @brief Montgomery reduction

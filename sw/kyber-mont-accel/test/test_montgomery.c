@@ -27,8 +27,35 @@ int main(void)
     int failed = 0;
     char line[64];
     int n = sizeof(tests) / sizeof(tests[0]);
+    uint32_t startTime, stopTime;
 
-    for (int i = 0; i < 1; i++)
+    startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
+    for (int i = 0; i < n; i++)
+    {
+        sint16 out = montgomery_reduce(tests[i].in);
+        if (out == tests[i].exp)
+        {   
+            PRINT(".");
+        }
+        else
+        {
+            failed = 1;
+            snprintf(line, sizeof(line),
+                     "\nFAIL: test %d -> %d (expected %d)\n",
+                     i, out, tests[i].exp);
+            PRINT(line);
+        }
+    }
+    stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
+    neorv32_uart0_printf("\n Default execution: %d cyc\n", stopTime - startTime);
+
+    if (!failed)
+    {
+        PRINT("\nAll tests passed.\n");
+    }
+
+    startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
+    for (int i = 0; i < n; i++)
     {
         sint16 out = montgomery(tests[i].in);
         if (out == tests[i].exp)
@@ -44,6 +71,8 @@ int main(void)
             PRINT(line);
         }
     }
+    stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
+    neorv32_uart0_printf("\n CFS execution: %d cyc\n", stopTime - startTime);
 
     if (!failed)
     {
