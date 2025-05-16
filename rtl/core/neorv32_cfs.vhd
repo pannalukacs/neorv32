@@ -100,7 +100,6 @@ begin
       diff_unsigned <= (others => '0');
       result_stage  <= (others => '0');
       stage_en      <= (others => '0');
-      irq_o         <= '0';
     elsif rising_edge(clk_i) then
       -- Pipeline shift
       stage_en <= stage_en(1 downto 0) & '0';
@@ -115,6 +114,7 @@ begin
       -- Stage 2: compute product
       if stage_en(0) = '1' then
         prod_stage <= resize(signed(t0_stage(15 downto 0)) * KYBER_Q, 32);
+        -- stage_en(1) <= '1';
       end if;
 
       -- Stage 3: compute result
@@ -123,14 +123,16 @@ begin
         diff_unsigned <= unsigned(diff); -- Convert to unsigned before shifting
         result_stage <= std_logic_vector(diff_unsigned(31 downto 16)); -- Extract upper 16 bits
         irq_trigger <= '1'; -- Raise interrupt
-      else 
+      end if;
+
+      if bus_req_i.stb = '1' and bus_req_i.rw = '0' and bus_req_i.addr(15 downto 2) = "00000000000000" then
         irq_trigger <= '0';
       end if;
 
-      irq_o <= irq_trigger;
     end if;
   end process;
-
+  
+  irq_o <= irq_trigger;
   -- Output result (lower 16 bits of REG[0] = result, upper 16 bits = zero)
   cfs_reg_rd(0) <= (31 downto 16 => '0') & result_stage;
   cfs_reg_rd(1) <= (others => '0');

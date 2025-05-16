@@ -9,11 +9,11 @@
 #define BAUD_RATE 19200
 #endif
 
-int cfs_done = 0;
+volatile int cfs_done = 0;
 
 #ifdef NEORV32
 void cfs_irq_handler(void) {
-    neorv32_uart0_printf("CFS_FIRQ = %d\n", CFS_FIRQ_ENABLE);
+    neorv32_uart0_printf("FIRQ fired\n");
     cfs_done = 1;
 }
 #endif
@@ -74,10 +74,11 @@ int main(void)
         cfs_done = 0;
         // sint16 out = montgomery(tests[i].in);
         NEORV32_CFS->REG[0] = (uint32_t)tests[i].in;
-        while (!cfs_done) {
-            neorv32_uart0_printf("%d\n", cfs_done);
-        };
+        neorv32_uart0_printf("cfs_done before = %d\n", cfs_done);
+        while (!cfs_done);
+        neorv32_uart0_printf("cfs_done after = %d\n", cfs_done);
         sint16 out = (sint16)(NEORV32_CFS->REG[0]);
+        neorv32_uart0_printf("out = %d\n", out);
 
         if (out == tests[i].exp)
         {   
