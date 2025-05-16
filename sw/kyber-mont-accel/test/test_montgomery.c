@@ -9,12 +9,26 @@
 #define BAUD_RATE 19200
 #endif
 
+int cfs_done = 0;
+
+#ifdef NEORV32
+void cfs_irq_handler(void) {
+    neorv32_uart0_printf("CFS_FIRQ = %d\n", CFS_FIRQ_ENABLE);
+    cfs_done = 1;
+}
+#endif
+
+
 int main(void)
 {
 #ifdef NEORV32
     neorv32_rte_setup();
     neorv32_uart0_setup(BAUD_RATE, 0);
+    neorv32_rte_handler_install(CFS_RTE_ID, cfs_irq_handler);
+    neorv32_cpu_csr_set(CSR_MIE, 1 << CFS_FIRQ_ENABLE);
+    neorv32_cpu_csr_set(CSR_MSTATUS, 1 << CSR_MSTATUS_MIE);
 #endif
+
     PRINT("Running Montgomery reduction tests\n");
 
     struct
@@ -29,10 +43,42 @@ int main(void)
     int n = sizeof(tests) / sizeof(tests[0]);
     uint32_t startTime, stopTime;
 
+    // startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
+    // for (int i = 0; i < n; i++)
+    // {
+    //     sint16 out = montgomery_reduce(tests[i].in);
+    //     if (out == tests[i].exp)
+    //     {   
+    //         PRINT(".");
+    //     }
+    //     else
+    //     {
+    //         failed = 1;
+    //         snprintf(line, sizeof(line),
+    //                  "\nFAIL: test %d -> %d (expected %d)\n",
+    //                  i, out, tests[i].exp);
+    //         PRINT(line);
+    //     }
+    // }
+    // stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
+    // neorv32_uart0_printf("\n Default execution: %d cyc\n", stopTime - startTime);
+
+    // if (!failed)
+    // {
+    //     PRINT("\nAll tests passed.\n");
+    // }
+
     startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
     for (int i = 0; i < n; i++)
     {
-        sint16 out = montgomery_reduce(tests[i].in);
+        cfs_done = 0;
+        // sint16 out = montgomery(tests[i].in);
+        NEORV32_CFS->REG[0] = (uint32_t)tests[i].in;
+        while (!cfs_done) {
+            neorv32_uart0_printf("%d\n", cfs_done);
+        };
+        sint16 out = (sint16)(NEORV32_CFS->REG[0]);
+
         if (out == tests[i].exp)
         {   
             PRINT(".");
@@ -47,32 +93,7 @@ int main(void)
         }
     }
     stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
-    neorv32_uart0_printf("\n Default execution: %d cyc\n", stopTime - startTime);
-
-    if (!failed)
-    {
-        PRINT("\nAll tests passed.\n");
-    }
-
-    startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
-    for (int i = 0; i < n; i++)
-    {
-        sint16 out = montgomery(tests[i].in);
-        if (out == tests[i].exp)
-        {   
-            PRINT(".");
-        }
-        else
-        {
-            failed = 1;
-            snprintf(line, sizeof(line),
-                     "\nFAIL: test %d -> %d (expected %d)\n",
-                     i, out, tests[i].exp);
-            PRINT(line);
-        }
-    }
-    stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
-    neorv32_uart0_printf("\n CFS execution: %d cyc\n", stopTime - startTime);
+    neorv32_uart0_printf("\n CFS execution (IRQ): %d cyc\n", stopTime - startTime);
 
     if (!failed)
     {
