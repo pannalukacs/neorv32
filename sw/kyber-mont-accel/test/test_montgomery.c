@@ -10,11 +10,13 @@
 #endif
 
 volatile int cfs_done = 0;
+volatile sint16 cfs_result = 0;
 
 #ifdef NEORV32
 void cfs_irq_handler(void) {
-    neorv32_uart0_printf("FIRQ fired\n");
+    cfs_result = NEORV32_CFS->REG[0];
     cfs_done = 1;
+    // neorv32_cpu_csr_clr(CSR_MIE, 1 << CFS_FIRQ_ENABLE);
 }
 #endif
 
@@ -77,7 +79,8 @@ int main(void)
         neorv32_uart0_printf("cfs_done before = %d\n", cfs_done);
         while (!cfs_done);
         neorv32_uart0_printf("cfs_done after = %d\n", cfs_done);
-        sint16 out = (sint16)(NEORV32_CFS->REG[0]);
+        // sint16 out = (sint16)(NEORV32_CFS->REG[0]);
+        sint16 out = cfs_result;
         neorv32_uart0_printf("out = %d\n", out);
 
         if (out == tests[i].exp)
@@ -88,7 +91,7 @@ int main(void)
         {
             failed = 1;
             snprintf(line, sizeof(line),
-                     "\nFAIL: test %d -> %d (expected %d)\n",
+                     "FAIL: test %d -> %d (expected %d)\n",
                      i, out, tests[i].exp);
             PRINT(line);
         }

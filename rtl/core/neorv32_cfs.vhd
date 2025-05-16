@@ -44,7 +44,7 @@ architecture neorv32_cfs_rtl of neorv32_cfs is
 
   -- Pipeline control
   signal stage_en      : std_logic_vector(2 downto 0) := (others => '0');
-  signal irq_trigger   : std_logic := '0'; 
+  signal irq_latch     : std_ulogic := '0';
 
 begin
 
@@ -121,19 +121,19 @@ begin
       if stage_en(1) = '1' then
         diff := a_reg - prod_stage;
         diff_unsigned <= unsigned(diff); -- Convert to unsigned before shifting
-        result_stage <= std_logic_vector(diff_unsigned(31 downto 16)); -- Extract upper 16 bits
-        irq_trigger <= '1'; -- Raise interrupt
+        result_stage  <= std_logic_vector(diff_unsigned(31 downto 16)); -- Extract upper 16 bits
+        irq_latch     <= '1'; -- Raise interrupt
       end if;
 
       if bus_req_i.stb = '1' and bus_req_i.rw = '0' and bus_req_i.addr(15 downto 2) = "00000000000000" then
-        irq_trigger <= '0';
+        irq_latch     <= '0';
       end if;
 
     end if;
   end process;
   
-  irq_o <= irq_trigger;
   -- Output result (lower 16 bits of REG[0] = result, upper 16 bits = zero)
+  irq_o         <= irq_latch;
   cfs_reg_rd(0) <= (31 downto 16 => '0') & result_stage;
   cfs_reg_rd(1) <= (others => '0');
   cfs_reg_rd(2) <= (others => '0');
