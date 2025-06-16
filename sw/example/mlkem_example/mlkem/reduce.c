@@ -13,6 +13,16 @@
 *
 * Returns:     integer in {-q+1,...,q-1} congruent to a * R^-1 modulo q.
 **************************************************/
+#ifdef NEORV32
+
+uint16 PQCLEAN_MLKEM512_CLEAN_montgomery_reduce(uint32 a)
+{
+    NEORV32_CFS->REG[0] = x;
+
+    return (uint16)NEORV32_CFS->REG[0];
+}
+
+#else 
 int16_t PQCLEAN_MLKEM512_CLEAN_montgomery_reduce(int32_t a) {
     int16_t t;
 
@@ -20,6 +30,8 @@ int16_t PQCLEAN_MLKEM512_CLEAN_montgomery_reduce(int32_t a) {
     t = (a - (int32_t)t * KYBER_Q) >> 16;
     return t;
 }
+
+#endif
 
 /*************************************************
 * Name:        PQCLEAN_MLKEM512_CLEAN_barrett_reduce

@@ -22,45 +22,47 @@ int main(void)
         sint32 in;
         sint16 exp;
     } tests[] = {
-        {0, 0}, {1, 169}, {-1, -169}, {KYBER_Q, 0}, {-KYBER_Q, 0}, {2, 338}, {(sint32)1 << 16, 1}, {56088, 1209}};
+         {0, 0}, {1, 169}, {-1, -169}, {KYBER_Q, 0}, {-KYBER_Q, 0}, {2, 338}, {(sint32)1 << 16, 1}, {56088, 1209}};
 
     int failed = 0;
     char line[64];
     int n = sizeof(tests) / sizeof(tests[0]);
     uint32_t startTime, stopTime;
 
-    startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
     for (int i = 0; i < n; i++)
     {
+        startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
         sint16 out = montgomery_reduce(tests[i].in);
+        stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
+        neorv32_uart0_printf("CPU Test %d: %d cyc\n", i+1, stopTime - startTime);
         if (out == tests[i].exp)
         {   
-            PRINT(".");
+            PRINT("--> Success\n");
         }
         else
         {
             failed = 1;
             snprintf(line, sizeof(line),
-                     "\nFAIL: test %d -> %d (expected %d)\n",
+                     "--> FAIL: test %d -> %d (expected %d)\n",
                      i, out, tests[i].exp);
             PRINT(line);
         }
     }
-    stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
-    neorv32_uart0_printf("\n Default execution: %d cyc\n", stopTime - startTime);
 
     if (!failed)
     {
         PRINT("\nAll tests passed.\n");
     }
 
-    startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
     for (int i = 0; i < n; i++)
     {
+        startTime = neorv32_cpu_csr_read(CSR_MCYCLE);
         sint16 out = montgomery(tests[i].in);
+        stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
+        neorv32_uart0_printf("CFS Test %d: %d cyc\n", i+1, stopTime - startTime);
         if (out == tests[i].exp)
         {   
-            PRINT(".");
+            PRINT("--> Success\n");
         }
         else
         {
@@ -71,8 +73,6 @@ int main(void)
             PRINT(line);
         }
     }
-    stopTime = neorv32_cpu_csr_read(CSR_MCYCLE);
-    neorv32_uart0_printf("\n CFS execution: %d cyc\n", stopTime - startTime);
 
     if (!failed)
     {
