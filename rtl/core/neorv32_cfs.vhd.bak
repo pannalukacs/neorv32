@@ -144,6 +144,7 @@ begin
       
       case state is
         when IDLE =>
+          -- Capture input when starting
           if start_op = '1' then
             a_reg <= signed(bus_req_i.data);
           end if;
@@ -160,6 +161,7 @@ begin
         when CYCLE3_SUB_SHIFT =>
           -- (a - t0*q) >> 16
           diff := a_reg - prod_reg;
+          -- Logical shift right by 16 (zero-extended)
           result_reg <= signed(shift_right(unsigned(diff), 16)(15 downto 0));
           
         when others =>

@@ -9,8 +9,17 @@
 
 uint16 montgomery(uint32 x)
 {
+    // Write operand to REG[0] - this starts the computation
     NEORV32_CFS->REG[0] = x;
 
+    // Wait for computation to complete by polling busy flag in REG[1]
+    while (NEORV32_CFS->REG[1] & 1)
+    {
+        // Bit 0 of REG[1] is the busy flag
+        // Loop until it becomes 0 (ready)
+    }
+
+    // Now read the actual result from REG[0]
     return (uint16)NEORV32_CFS->REG[0];
 }
 

@@ -1,5 +1,5 @@
 -- ================================================================================ --
--- NEORV32 - Minimal generic setup, bootloader enabled, CFS disabled                --
+-- NEORV32 - Minimal generic setup with the bootloader enabled                      --
 -- ================================================================================ --
 
 library ieee;
@@ -10,7 +10,7 @@ library neorv32;
 
 entity neorv32_ProcessorTop_MinimalBoot is
   generic (
-    CLOCK_FREQUENCY   : natural := 100_000_000;
+    CLOCK_FREQUENCY   : natural := 0;
     MEM_INT_IMEM_EN   : boolean := true;
     MEM_INT_IMEM_SIZE : natural := 64*1024;
     MEM_INT_DMEM_EN   : boolean := true;
@@ -19,8 +19,8 @@ entity neorv32_ProcessorTop_MinimalBoot is
     IO_PWM_NUM_CH     : natural := 3
   );
   port (
-    clk_i      : in  std_ulogic;
-    rstn_i     : in  std_ulogic;
+    clk_i      : in  std_logic;
+    rstn_i     : in  std_logic;
     gpio_o     : out std_ulogic_vector(IO_GPIO_NUM-1 downto 0);
     uart_txd_o : out std_ulogic;
     uart_rxd_i : in  std_ulogic := '0';
@@ -28,12 +28,16 @@ entity neorv32_ProcessorTop_MinimalBoot is
   );
 end entity;
 
-architecture rtl of neorv32_ProcessorTop_MinimalBoot is
-  signal con_gpio_o   : std_ulogic_vector(31 downto 0);
-  signal con_pwm_o    : std_ulogic_vector(15 downto 0);
-  signal cfs_in_dummy : std_ulogic_vector(31 downto 0) := (others => '0');
+architecture neorv32_ProcessorTop_MinimalBoot_rtl of neorv32_ProcessorTop_MinimalBoot is
+
+  signal con_gpio_o    : std_ulogic_vector(31 downto 0);
+  signal con_pwm_o     : std_ulogic_vector(15 downto 0);
+  signal cfs_in_dummy  : std_ulogic_vector(31 downto 0) := (others => '0');
+  signal cfs_out_dummy : std_ulogic_vector(31 downto 0);
+
 begin
-  u_core : entity neorv32.neorv32_top
+
+  neorv32_inst : entity neorv32.neorv32_top
     generic map (
       CLOCK_FREQUENCY   => CLOCK_FREQUENCY,
       BOOT_MODE_SELECT  => 0,
@@ -46,7 +50,10 @@ begin
       IO_CLINT_EN       => true,
       IO_UART0_EN       => true,
       IO_PWM_NUM_CH     => IO_PWM_NUM_CH,
-      IO_CFS_EN         => true            -- CFS 
+      IO_CFS_EN         => true,
+      IO_CFS_IN_SIZE    => 32,
+      IO_CFS_OUT_SIZE   => 32,
+      IO_CFS_CONFIG     => x"00000000"
     )
     port map (
       clk_i       => clk_i,
@@ -57,9 +64,10 @@ begin
       uart0_rxd_i => uart_rxd_i,
       pwm_o       => con_pwm_o,
       cfs_in_i    => cfs_in_dummy,
-      cfs_out_o   => open
+      cfs_out_o   => cfs_out_dummy
     );
 
   gpio_o <= con_gpio_o(IO_GPIO_NUM-1 downto 0);
   pwm_o  <= con_pwm_o(IO_PWM_NUM_CH-1 downto 0);
+
 end architecture;
